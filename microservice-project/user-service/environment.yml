@@ -1,0 +1,13 @@
+name: user-service
+channels:
+ - conda-forge 
+ - defaults
+dependencies:
+  - python=3.11
+  - fastapi
+  - uvicorn
+  - pika
+  - pydantic
+  - sqlalchemy
+  - alembic
+  - psycopg2-binary

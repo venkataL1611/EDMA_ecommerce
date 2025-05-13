@@ -1,0 +1,13 @@
+name: email-service
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.11
+  - fastapi
+  - uvicorn
+  - pika
+  - pydantic
+  - pip
+  - pip:
+      - aio_pika

@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+python-dotenv
+pika
+aio_pika
+psycopg2-binary

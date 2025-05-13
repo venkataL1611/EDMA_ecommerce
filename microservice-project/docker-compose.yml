@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  user-service:
+    build:
+      context: ./user-service
+    environment:
+      - RABBITMQ_URL=rabbitmq://rabbitmq:5672/
+    depends_on:
+      - rabbitmq
+    ports:
+      - "8000:8000"
+
+  email-service:
+    build:
+      context: ./email-service
+    environment:
+      - RABBITMQ_URL=rabbitmq://rabbitmq:5672/
+    depends_on:
+      - rabbitmq
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
