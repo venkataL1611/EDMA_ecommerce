@@ -4,3 +4,5 @@ python-dotenv
 pika
 aio_pika
 psycopg2-binary
+debugpy
+asyncpg

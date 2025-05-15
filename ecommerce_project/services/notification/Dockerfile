@@ -7,4 +7,5 @@ ENV PYTHONPATH="/app/shared"
 RUN pip install --no-cache-dir -r requirements.txt
 COPY ./services/notification/app /app/app
 COPY . .
+ENV PYTHONPATH="/app/shared"
 CMD ["python", "-m", "app.main"]

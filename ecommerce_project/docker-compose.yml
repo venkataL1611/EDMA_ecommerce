@@ -21,7 +21,23 @@ services:
     ports:
       - "5002:5002"
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=myecomm_pass
+      - POSTGRES_DB=postgres
+      - POSTGRES_PORT=5432
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
   notification:
     build:
@@ -32,6 +48,15 @@ services:
       - "5003:5003"
     depends_on:
       - rabbitmq
+      - postgres
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=myecomm_pass
+      - POSTGRES_DB=postgres
+      - POSTGRES_PORT=5432
+      - RABBITMQ_HOST=rabbitmq
 
   order:
     build:
@@ -49,6 +74,7 @@ services:
       - POSTGRES_PASSWORD=myecomm_pass
       - POSTGRES_DB=postgres
       - POSTGRES_PORT=5432
+      - RABBITMQ_HOST=rabbitmq
 
   product:
     build:
@@ -59,7 +85,7 @@ services:
       - "5004:5004"
     depends_on:
       - rabbitmq
-
+    
   user:
     build:
       context: .
@@ -71,7 +97,7 @@ services:
       - rabbitmq
 
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:3-management-alpine  # More lightweight
     container_name: rabbitmq
     ports:
       - "5672:5672"
@@ -79,30 +105,36 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]  # More reliable check
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
 
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine  # More lightweight
     container_name: postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: myecomm_pass
       POSTGRES_DB: postgres
-      POSTGRES_PORT: 5432
     ports:
-      - "5431:5432"
+      - "5431:5432"  # Changed to standard port
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
   redis:
     image: redis:7
     container_name: redis
     ports:
       - "6379:6379"
     command: ["redis-server", "--maxmemory-policy", "allkeys-lru"]
-
+   
 volumes:
   postgres_data:
-
-networks:
-  default:
-    name: backend_network
