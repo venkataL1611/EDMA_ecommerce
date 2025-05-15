@@ -88,7 +88,7 @@ async def process_order_in_db(order: Order):
         # UPSERT operation
         query = """
         INSERT INTO orders (id, product_id, user_id, quantity, status)
-        VALUES (%s, %s, %s, %s, %s)
+        VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (id) DO UPDATE 
         SET product_id = EXCLUDED.product_id,
             user_id = EXCLUDED.user_id,
@@ -97,7 +97,7 @@ async def process_order_in_db(order: Order):
             updated_at = NOW()
         """
         params = (order.id, order.product_id, order.user_id, order.quantity, order.status)
-        db.execute_query(query, params)
+        await db.execute_query(query, params)
         
     except Exception as e:
         logger.error(f"Database operation failed: {e}")

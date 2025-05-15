@@ -261,3 +261,21 @@ Improved error handling and logging
 
 Proper resource cleanup
 
+
+
+
+CREATE TABLE orders (
+    id SERIAL PRIMARY KEY,          -- Unique identifier for the order
+    product_id INT NOT NULL,        -- ID of the product being ordered
+    user_id INT NOT NULL,           -- ID of the user placing the order
+    quantity INT NOT NULL,          -- Quantity of the product ordered
+    status VARCHAR(50) NOT NULL,    -- Status of the order (e.g., pending, completed)
+    updated_at TIMESTAMP DEFAULT NOW() -- Timestamp for the last update
+);
+
+
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    stock INT NOT NULL DEFAULT 0
+);
