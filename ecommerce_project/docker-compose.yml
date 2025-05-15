@@ -29,7 +29,7 @@ services:
       - RABBITMQ_HOST=rabbitmq
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=myecomm_pass
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=postgres
       - POSTGRES_PORT=5432
     healthcheck:
@@ -53,7 +53,7 @@ services:
       - RABBITMQ_HOST=rabbitmq
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=myecomm_pass
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=postgres
       - POSTGRES_PORT=5432
       - RABBITMQ_HOST=rabbitmq
@@ -71,7 +71,7 @@ services:
     environment:
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=myecomm_pass
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=postgres
       - POSTGRES_PORT=5432
       - RABBITMQ_HOST=rabbitmq

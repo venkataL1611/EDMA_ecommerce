@@ -273,9 +273,11 @@ CREATE TABLE orders (
     updated_at TIMESTAMP DEFAULT NOW() -- Timestamp for the last update
 );
 
-
 CREATE TABLE products (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    stock INT NOT NULL DEFAULT 0
+    id SERIAL PRIMARY KEY,          -- Unique identifier for the product
+    name VARCHAR(255) NOT NULL,     -- Name of the product
+    stock INT NOT NULL DEFAULT 0,   -- Current stock of the product
+    updated_at TIMESTAMP DEFAULT NOW() -- Timestamp for the last update
 );
+
+

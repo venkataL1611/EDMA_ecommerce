@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
-
+import json 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,6 +17,9 @@ shared_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../sha
 sys.path.append(shared_path)
 
 from shared.rabbitmq import RabbitMQ
+from shared.database import Database 
+
+db=Database()
 
 # Setup RabbitMQ instance globally
 rabbitmq = RabbitMQ(queue_name="notification_queue")
@@ -52,7 +55,7 @@ async def lifespan(app: FastAPI):
 async def _initialize_rabbitmq(app: FastAPI):
     try:
         await rabbitmq._ensure_connection()
-        await rabbitmq.start_consuming(process_notification)
+        await rabbitmq.start_consuming(process_notification_message)
         app.state.rabbitmq_ready.set()
     except Exception as e:
         logger.error(f"Failed to initialize RabbitMQ: {str(e)}")
@@ -60,20 +63,39 @@ async def _initialize_rabbitmq(app: FastAPI):
             app.state.rabbitmq_ready.set()
         raise
 
-async def process_notification(message):
+async def process_notification_message(message):
+    """Process notification messages from RabbitMQ"""
     async with message.process():
         try:
-            notification_data = message.body.decode()
+            # Parse message
+            notification_data = json.loads(message.body.decode())
             logger.info(f"Processing notification: {notification_data}")
-            # Business logic: Send email notification to the user
-            notification = eval(notification_data)  # Convert string to dictionary
-            user_id = notification["user_id"]
-            order_id = notification["order_id"]
-            status = notification["status"]
-            # Example: Log the notification (replace with actual email logic)
-            logger.info(f"Email sent to user_id: {user_id} for order_id: {order_id} with status: {status}")
+            
+            # Extract data
+            user_id = notification_data["user_id"]
+            order_id = notification_data["order_id"]
+            status = notification_data["status"]
+            
+            # Look up user email
+            query = "SELECT email FROM users WHERE id = $1"
+            result = await db.execute_query(query, [user_id], fetch=True)
+            if not result:
+                logger.error(f"User with ID {user_id} not found")
+                return
+            
+            email = result[0]["email"]
+            
+            # Simulate sending email
+            logger.info(f"Sending email to {email}: Order {order_id} is {status}")
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid message format: {str(e)}")
+            raise
+        except KeyError as e:
+            logger.error(f"Missing required field in message: {str(e)}")
+            raise
         except Exception as e:
-            logger.error(f"Error processing notification: {str(e)}")
+            logger.error(f"Error processing notification: {str(e)}", exc_info=True)
             raise
 
 app = FastAPI(lifespan=lifespan)

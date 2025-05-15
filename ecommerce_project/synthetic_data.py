@@ -1,47 +1,47 @@
 from sdv.single_table import GaussianCopulaSynthesizer
-import pandas as pd 
+import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_values
 from sdv.metadata import SingleTableMetadata
+from datetime import datetime, timedelta
+import random
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Database connection details
 DB_CONFIG = {
-    "dbname": "postgres",
-    "user": "postgres",
-    "password": "myecomm_pass",  # Change to your actual password
-    "host": "localhost",
-    "port": 5431,
+    "dbname": os.getenv("DB_NAME", "postgres"),
+    "user": os.getenv("DB_USER", "postgres"),
+    "password": os.getenv("DB_PASSWORD", ""),
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": os.getenv("DB_PORT", "5432"),
 }
 
-# Define schemas for Product and User
+# Define schema for Products
 product_data = pd.DataFrame({
-    "product_id": [1, 2, 3],
+    "id": [1, 2, 3],
     "name": ["Product A", "Product B", "Product C"],
-    "description": ["Description A", "Description B", "Description C"]
+    "stock": [100, 200, 150],
+    "updated_at": [
+        datetime.now() - timedelta(days=random.randint(1, 30)),
+        datetime.now() - timedelta(days=random.randint(1, 30)),
+        datetime.now() - timedelta(days=random.randint(1, 30)),
+    ]
 })
 
-user_data = pd.DataFrame({
-    "name": ["John Doe", "Jane Smith", "Alice Johnson"],
-    "email": ["john@example.com", "jane@example.com", "alice@example.com"]
-})
-
-# Create metadata for SDV models
+# Create metadata for SDV model
 product_metadata = SingleTableMetadata()
 product_metadata.detect_from_dataframe(product_data)
 
-user_metadata = SingleTableMetadata()
-user_metadata.detect_from_dataframe(user_data)
-
-# Train SDV models
+# Train SDV model
 product_model = GaussianCopulaSynthesizer(product_metadata)
 product_model.fit(product_data)
 
-user_model = GaussianCopulaSynthesizer(user_metadata)
-user_model.fit(user_data)
-
 # Generate synthetic data
 synthetic_products = product_model.sample(100)
-synthetic_users = user_model.sample(100)
 
 
 def insert_data(table_name, data):
@@ -57,7 +57,7 @@ def insert_data(table_name, data):
                 query = f"""
                 INSERT INTO {table_name.lower()} ({columns}) 
                 VALUES %s 
-                ON CONFLICT (product_id) DO NOTHING
+                ON CONFLICT (id) DO NOTHING
                 """
 
                 # Convert DataFrame to list of tuples
@@ -70,9 +70,7 @@ def insert_data(table_name, data):
     except (Exception, psycopg2.DatabaseError) as error:
         print(f"Error inserting into {table_name}: {error}")
 
-# Create tables first
 
 # Insert synthetic data into the database
-insert_data("product", synthetic_products)
-insert_data("users", synthetic_users)
+insert_data("products", synthetic_products)
 
