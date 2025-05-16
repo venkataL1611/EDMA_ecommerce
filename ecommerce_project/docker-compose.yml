@@ -27,10 +27,10 @@ services:
         condition: service_healthy
     environment:
       - RABBITMQ_HOST=rabbitmq
-      - POSTGRES_HOST=postgres
-      - POSTGRES_USER=postgres
+      - DB_HOST=postgres
+      - DB_USER=postgres
       - DB_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=postgres
+      - DB_NAME=postgres
       - POSTGRES_PORT=5432
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
@@ -51,10 +51,10 @@ services:
       - postgres
     environment:
       - RABBITMQ_HOST=rabbitmq
-      - POSTGRES_HOST=postgres
-      - POSTGRES_USER=postgres
+      - DB_HOST=postgres
+      - DB_USER=postgres
       - DB_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=postgres
+      - DB_NAME=postgres
       - POSTGRES_PORT=5432
       - RABBITMQ_HOST=rabbitmq
 
@@ -69,10 +69,10 @@ services:
       - rabbitmq
       - postgres
     environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_USER=postgres
+      - DB_HOST=postgres
+      - DB_USER=postgres
       - DB_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=postgres
+      - DB_NAME=postgres
       - POSTGRES_PORT=5432
       - RABBITMQ_HOST=rabbitmq
 

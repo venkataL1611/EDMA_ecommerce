@@ -1,49 +1,15 @@
-# # Main application file for gateway service
-# import sys
-# import os
-# from fastapi import FastAPI
-# from dotenv import load_dotenv
-# import asyncio
-
-# # Load environment variables
-# load_dotenv()
-
-# # Add shared directory to Python path
-# shared_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../shared'))
-# sys.path.append(shared_path)
-
-# from shared.rabbitmq import RabbitMQ
-
-# app = FastAPI()
-
-
-# @app.get("/status")
-# def status():
-#     return {"status": "Gateway service is running"}
-
-# @app.post("/orders")
-# async def create_order(order: dict):
-#     rabbitmq = RabbitMQ(queue_name="order_queue")
-#     await rabbitmq.connect()
-#     print(f"Publishing order to RabbitMQ: {order}")
-#     await rabbitmq.publish_message(str(order))
-#     await rabbitmq.close()
-#     return {"message": "Order event published to RabbitMQ."}
-
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=5050)
-
 import os
 import asyncio
 import logging
-from fastapi import FastAPI, HTTPException, status
+from datetime import datetime, timedelta
+from fastapi import FastAPI, HTTPException, status, Depends
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from typing import Optional
-
-from shared.rabbitmq import RabbitMQ
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -51,8 +17,42 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+# JWT Configuration
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-strong-secret-key-here")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 # Setup RabbitMQ instance
 rabbitmq = RabbitMQ(queue_name="order_queue")
+
+# OAuth2 scheme for token extraction
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Mock user database (replace with real database in production)
+fake_users_db = {
+    "admin": {
+        "username": "admin",
+        "hashed_password": pwd_context.hash("adminpassword"),
+        "disabled": False,
+    }
+}
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+
+class User(BaseModel):
+    username: str
+    disabled: Optional[bool] = None
+
+class UserInDB(User):
+    hashed_password: str
 
 class OrderCreateRequest(BaseModel):
     product_id: int
@@ -66,6 +66,50 @@ class OrderResponse(BaseModel):
     quantity: int
     status: str
     message: Optional[str] = None
+
+# Authentication utilities
+def verify_password(plain_password: str, hashed_password: str):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_user(db, username: str):
+    if username in db:
+        user_dict = db[username]
+        return UserInDB(**user_dict)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = TokenData(username=username)
+    except JWTError:
+        raise credentials_exception
+    
+    user = get_user(fake_users_db, username=token_data.username)
+    if user is None:
+        raise credentials_exception
+    return user
+
+async def get_current_active_user(current_user: User = Depends(get_current_user)):
+    if current_user.disabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -102,7 +146,7 @@ async def _initialize_rabbitmq(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize RabbitMQ: {str(e)}")
         if not app.state.rabbitmq_ready.is_set():
-            app.state.rabbitmq_ready.set()  # Ensure we don't hang
+            app.state.rabbitmq_ready.set()
         raise
 
 app = FastAPI(
@@ -111,14 +155,34 @@ app = FastAPI(
     description="Handles order creation and routing to the order service"
 )
 
+# Authentication endpoints
+@app.post("/token", response_model=Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = get_user(fake_users_db, form_data.username)
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# Protected endpoints
 @app.post("/orders", response_model=OrderResponse, status_code=status.HTTP_202_ACCEPTED)
-async def create_order(order_request: OrderCreateRequest):
+async def create_order(
+    order_request: OrderCreateRequest,
+    current_user: User = Depends(get_current_active_user)
+):
     """
     Create a new order by publishing to RabbitMQ.
-    Returns immediately with order acceptance confirmation.
+    Requires valid JWT token.
     """
     try:
-        # Generate a unique order ID (in production, use a proper ID generator)
+        # Generate a unique order ID
         order_id = int(asyncio.get_running_loop().time() * 1000)
         
         order_data = {
@@ -126,14 +190,15 @@ async def create_order(order_request: OrderCreateRequest):
             "product_id": order_request.product_id,
             "user_id": order_request.user_id,
             "quantity": order_request.quantity,
-            "status": "received"
+            "status": "received",
+            "created_by": current_user.username
         }
         
-        await rabbitmq.publish_message(str(order_data))
+        await rabbitmq.publish_message(json.dumps(order_data))
         
         return {
             **order_data,
-            "message": "Order received and being processed"
+            "message": f"Order received and being processed by {current_user.username}"
         }
     except Exception as e:
         logger.error(f"Failed to create order: {str(e)}")
@@ -157,6 +222,13 @@ async def health_check():
         "services": {
             "rabbitmq": "connected"
         }
+    }
+
+@app.get("/status")
+async def status(current_user: User = Depends(get_current_active_user)):
+    return {
+        "status": "Gateway is secure and running",
+        "authenticated_user": current_user.username
     }
 
 @app.get("/")
