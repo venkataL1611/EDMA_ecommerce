@@ -24,7 +24,7 @@ class RabbitMQ:
         while retries < max_retries:
             try:
                 self.connection = await connect_robust(
-                    "amqp://guest:guest@rabbitmq/",
+                    f"amqp://{os.getenv('RABBITMQ_USER', 'guest')}:{os.getenv('RABBITMQ_PASSWORD', 'guest')}@{os.getenv('RABBITMQ_HOST', 'rabbitmq')}/",
                     timeout=10
                 )
                 self.channel = await self.connection.channel()

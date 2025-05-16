@@ -23,11 +23,11 @@ class Database:
                 self.pool = await create_pool(
                     min_size=1,
                     max_size=10,
-                    user=os.getenv("POSTGRES_USER"),
-                    password=os.getenv("POSTGRES_PASSWORD"),
-                    host=os.getenv("POSTGRES_HOST"),
-                    port=os.getenv("POSTGRES_PORT"),
-                    database=os.getenv("POSTGRES_DB"),
+                    user=os.getenv("DB_USER"),
+                    password=os.getenv("DB_PASSWORD"),
+                    host=os.getenv("DB_HOST"),
+                    port=os.getenv("DB_PORT"),
+                    database=os.getenv("DB_NAME"),
                     timeout=10
                 )
                 # Test the connection
