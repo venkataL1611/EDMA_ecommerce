@@ -2,7 +2,7 @@ import os
 import asyncio
 import sys 
 import logging
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Request, status
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 import json 
@@ -10,7 +10,7 @@ import json
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+load_dotenv(override=True)
 
 # Add shared directory to Python path
 shared_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../shared'))
@@ -23,6 +23,13 @@ db=Database()
 
 # Setup RabbitMQ instance globally
 rabbitmq = RabbitMQ(queue_name="notification_queue")
+
+API_TOKEN = os.getenv("API_TOKEN", "your-secret-token")
+
+def verify_token(request: Request):
+    auth = request.headers.get("Authorization")
+    if not auth or auth != f"Bearer {API_TOKEN}":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API token")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -101,11 +108,11 @@ async def process_notification_message(message):
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/status")
-def status():
+def status(dep=Depends(verify_token)):
     return {"status": "Notification service is running"}
 
 @app.get("/health")
-async def health_check():
+async def health_check(dep=Depends(verify_token)):
     if not rabbitmq._is_connected.is_set():
         raise HTTPException(status_code=503, detail="RabbitMQ not connected")
     return {"status": "healthy", "rabbitmq": "connected"}

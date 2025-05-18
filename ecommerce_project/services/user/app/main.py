@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+load_dotenv(override=True)
 
 # Add shared directory to Python path
 shared_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../shared'))

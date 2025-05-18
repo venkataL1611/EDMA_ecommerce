@@ -2,7 +2,7 @@ import os
 import asyncio
 import logging
 import json
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Request, status
 from dotenv import load_dotenv
 from pydantic import BaseModel, ValidationError
 from contextlib import asynccontextmanager
@@ -18,12 +18,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+load_dotenv(override=True)
 
 # Initialize RabbitMQ connections globally
 order_rabbitmq = RabbitMQ(queue_name="order_queue")
 inventory_rabbitmq = RabbitMQ(queue_name="inventory_queue")
 notification_rabbitmq = RabbitMQ(queue_name="notification_queue")
+
+API_TOKEN = os.getenv("API_TOKEN", "your-secret-token")
+
+def verify_token(request: Request):
+    auth = request.headers.get("Authorization")
+    if not auth or auth != f"Bearer {API_TOKEN}":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API token")
 
 class Order(BaseModel):
     id: int
@@ -140,7 +147,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 @app.post("/orders")
-async def create_order(order: Order):
+async def create_order(order: Order, dep=Depends(verify_token)):
     """API endpoint to create new orders"""
     try:
         # Publish directly to order queue
@@ -150,7 +157,7 @@ async def create_order(order: Order):
         logger.error(f"Failed to queue order: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ... (other endpoints remain the same) ...
+# ... (other endpoints remain the same, add dep=Depends(verify_token) as needed) ...
 
 if __name__ == "__main__":
     import uvicorn
