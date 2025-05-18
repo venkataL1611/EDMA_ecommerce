@@ -120,7 +120,7 @@ services:
       DB_PASSWORD: myecomm_pass
       POSTGRES_DB: postgres
     ports:
-      - "5431:5432"  # Changed to standard port
+      - "5432:5432"  # Changed to standard port
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

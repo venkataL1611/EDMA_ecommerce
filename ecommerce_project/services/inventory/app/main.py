@@ -3,7 +3,7 @@ import sys
 import asyncio
 import logging
 import json
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Request, status
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 
@@ -14,7 +14,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+load_dotenv(override=True)
 
 # Add shared directory to Python path
 shared_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../shared'))
@@ -26,6 +26,13 @@ from shared.database import Database  # Updated to use async Database class
 # Initialize services
 rabbitmq = RabbitMQ(queue_name="inventory_queue")
 db = Database()
+
+API_TOKEN = os.getenv("API_TOKEN", "your-secret-token")
+
+def verify_token(request: Request):
+    auth = request.headers.get("Authorization")
+    if not auth or auth != f"Bearer {API_TOKEN}":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API token")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -113,7 +120,7 @@ async def process_inventory_update(message):
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/status")
-async def status():
+async def status(dep=Depends(verify_token)):
     """Service status endpoint"""
     return {
         "status": "running",
@@ -124,7 +131,7 @@ async def status():
     }
 
 @app.get("/health")
-async def health_check():
+async def health_check(dep=Depends(verify_token)):
     """Health check endpoint"""
     if not rabbitmq._is_connected.is_set():
         raise HTTPException(

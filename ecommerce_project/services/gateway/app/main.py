@@ -1,7 +1,7 @@
 import os
 import asyncio
 import logging
-from fastapi import FastAPI, HTTPException, status, Security, Depends
+from fastapi import FastAPI, HTTPException, status, Security, Depends, Form
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -17,7 +17,7 @@ from shared.rabbitmq import RabbitMQ
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+load_dotenv(override=True)
 
 # Setup RabbitMQ instance
 rabbitmq = RabbitMQ(queue_name="order_queue")
@@ -34,7 +34,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 # Utility to create JWT token
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    expire = datetime.now(datetime.timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -122,7 +122,8 @@ app = FastAPI(
 )
 
 @app.post("/token")
-async def get_token_from_api_key(api_key: str = Depends(validate_api_key)):
+async def get_token_from_api_key(api_key: str = Form(...)):
+    await validate_api_key(api_key)
     access_token = create_access_token(data={"sub": api_key})
     return {"access_token": access_token, "token_type": "bearer"}
 
