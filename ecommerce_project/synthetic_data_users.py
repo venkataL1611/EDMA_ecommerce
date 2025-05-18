@@ -1,12 +1,12 @@
-from sdv.single_table import GaussianCopulaSynthesizer
 import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_values
-from sdv.metadata import SingleTableMetadata
 from datetime import datetime, timedelta
 import random
 from dotenv import load_dotenv
 import os
+from faker import Faker
+import hashlib
 
 # Load environment variables from .env file
 load_dotenv()
@@ -20,28 +20,34 @@ DB_CONFIG = {
     "port": os.getenv("DB_PORT", "5432"),
 }
 
-# Define schema for Products
-product_data = pd.DataFrame({
-    "id": [1, 2, 3],
-    "name": ["Product A", "Product B", "Product C"],
-    "stock": [100, 200, 150],
-    "updated_at": [
-        datetime.now() - timedelta(days=random.randint(1, 30)),
-        datetime.now() - timedelta(days=random.randint(1, 30)),
-        datetime.now() - timedelta(days=random.randint(1, 30)),
-    ]
-})
 
-# Create metadata for SDV model
-product_metadata = SingleTableMetadata()
-product_metadata.detect_from_dataframe(product_data)
+# Number of synthetic users to generate
+NUM_USERS = 100
 
-# Train SDV model
-product_model = GaussianCopulaSynthesizer(product_metadata)
-product_model.fit(product_data)
+# Initialize Faker
+fake = Faker()
 
-# Generate synthetic data
-synthetic_products = product_model.sample(100)
+# Generate synthetic user data
+user_data = []
+for i in range(NUM_USERS):
+    username = fake.user_name() + str(i)  # Ensure uniqueness
+    email = fake.unique.email()
+    password = fake.password(length=12)
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
+    is_active = fake.boolean(chance_of_getting_true=90)
+    created_at = fake.date_time_between(start_date='-2y', end_date='now')
+    updated_at = created_at + timedelta(days=random.randint(0, 365))
+    user_data.append({
+        "username": username,
+        "email": email,
+        "password_hash": password_hash,
+        "is_active": is_active,
+        "created_at": created_at,
+        "updated_at": updated_at
+    })
+
+# Create DataFrame for users
+user_df = pd.DataFrame(user_data)
 
 
 def insert_data(table_name, data):
@@ -71,6 +77,6 @@ def insert_data(table_name, data):
         print(f"Error inserting into {table_name}: {error}")
 
 
-# Insert synthetic data into the database
-insert_data("products", synthetic_products)
+# Insert synthetic user data into the database
+insert_data("users", user_df)
 
