@@ -281,3 +281,12 @@ CREATE TABLE products (
 );
 
 
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,              -- Unique identifier for the user
+    username VARCHAR(150) NOT NULL UNIQUE, -- Username, must be unique
+    email VARCHAR(255) NOT NULL UNIQUE, -- Email, must be unique
+    password_hash VARCHAR(255) NOT NULL, -- Hashed password
+    is_active BOOLEAN DEFAULT TRUE,     -- User active status
+    created_at TIMESTAMP DEFAULT NOW(), -- Account creation timestamp
+    updated_at TIMESTAMP DEFAULT NOW()  -- Last update timestamp
+);

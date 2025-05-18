@@ -27,11 +27,11 @@ services:
         condition: service_healthy
     environment:
       - RABBITMQ_HOST=rabbitmq
-      - POSTGRES_HOST=postgres
-      - POSTGRES_USER=postgres
+      - DB_HOST=postgres         # <-- change this line
+      - DB_USER=postgres
       - DB_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=postgres
-      - POSTGRES_PORT=5432
+      - DB_NAME=postgres
+      - DB_PORT=5432
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
       interval: 10s
@@ -51,12 +51,11 @@ services:
       - postgres
     environment:
       - RABBITMQ_HOST=rabbitmq
-      - POSTGRES_HOST=postgres
-      - POSTGRES_USER=postgres
+      - DB_HOST=postgres
+      - DB_USER=postgres
       - DB_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=postgres
-      - POSTGRES_PORT=5432
-      - RABBITMQ_HOST=rabbitmq
+      - DB_NAME=postgres
+      - DB_PORT=5432
 
   order:
     build:
@@ -69,11 +68,11 @@ services:
       - rabbitmq
       - postgres
     environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_USER=postgres
+      - DB_HOST=postgres
+      - DB_USER=postgres
       - DB_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=postgres
-      - POSTGRES_PORT=5432
+      - DB_NAME=postgres
+      - DB_PORT=5432
       - RABBITMQ_HOST=rabbitmq
 
   product:
@@ -119,8 +118,9 @@ services:
       POSTGRES_USER: postgres
       DB_PASSWORD: myecomm_pass
       POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: myecomm_pass
     ports:
-      - "5431:5432"  # Changed to standard port
+      - "5432:5432"  # Changed to standard port
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
